@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -61,4 +63,28 @@ func setDefaults() {
 	viper.SetDefault("log.format", "json")
 	viper.SetDefault("app.name", "Gin Server")
 	viper.SetDefault("app.version", "1.0.0")
+}
+
+func InitLogger(cfg *Config) *logrus.Logger {
+	logger := logrus.New()
+
+	level, err := logrus.ParseLevel(cfg.Log.Level)
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+	logger.SetLevel(level)
+
+	if cfg.Log.Format == "json" {
+		logger.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat: time.RFC3339,
+		})
+	} else {
+		logger.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: time.RFC3339,
+		})
+	}
+
+	logger.Info("Logger initialized with level: ", cfg.Log.Level, " and format: ", cfg.Log.Format)
+	return logger
 }

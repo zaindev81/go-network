@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"tidy/internal/config"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +11,10 @@ func main() {
 	if err != nil {
 		panic("Failed to load config: " + err.Error())
 	}
-	fmt.Println("Server Config:", cfg)
+
+	logger := config.InitLogger(cfg)
+
+	logger.Info("Starting server")
 
 	router := gin.Default()
 	router.GET("/ping", func(c *gin.Context) {
