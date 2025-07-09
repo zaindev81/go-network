@@ -15,6 +15,10 @@ func main() {
 	logger := config.InitLogger(cfg)
 
 	logger.Info("Starting server")
+	logger.WithFields(map[string]interface{}{
+		"app":     cfg.App.Name,
+		"version": cfg.App.Version,
+	}).Info("Server configuration loaded")
 
 	router := gin.Default()
 	router.GET("/ping", func(c *gin.Context) {
