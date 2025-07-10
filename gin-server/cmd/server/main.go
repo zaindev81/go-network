@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"tidy/internal/config"
 	"tidy/internal/middleware"
+	"tidy/internal/routes"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -29,15 +30,11 @@ func run() error {
 		return fmt.Errorf("initialization failed: %w", err)
 	}
 
-	gin.SetMode(cfg.Server.Mode)
-
-	router := gin.Default()
-
-	router.Use(middleware.Logger(logger))
-	router.Use(gin.Recovery())
-
-	corsConfig := createCORSConfig()
-	router.Use(cors.New(corsConfig))
+	router, err := setupRouter(cfg, logger)
+	if err != nil {
+		logger.WithError(err).Error("Failed to setup router")
+		return fmt.Errorf("failed to setup router: %w", err)
+	}
 
 	server := &http.Server{
 		Addr:           ":" + cfg.Server.Port,
@@ -49,6 +46,40 @@ func run() error {
 	}
 
 	return runServerWithGracefulShutdown(server, logger)
+}
+
+func setupRouter(cfg *config.Config, logger *logrus.Logger) (*gin.Engine, error) {
+	gin.SetMode(cfg.Server.Mode)
+
+	router := gin.New()
+
+	if err := setupMiddleware(router, logger); err != nil {
+		return nil, fmt.Errorf("failed to setup middleware: %w", err)
+	}
+
+	routes.Setup(router, cfg, logger)
+
+	return router, nil
+}
+
+func setupMiddleware(router *gin.Engine, logger *logrus.Logger) error {
+	router.Use(middleware.Logger(logger))
+
+	router.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+		if err, ok := recovered.(string); ok {
+			logger.WithFields(logrus.Fields{
+				"error":  err,
+				"path":   c.Request.URL.Path,
+				"method": c.Request.Method,
+			}).Error("Panic recovered")
+		}
+		c.AbortWithStatus(http.StatusInternalServerError)
+	}))
+
+	corsConfig := createCORSConfig()
+	router.Use(cors.New(corsConfig))
+
+	return nil
 }
 
 func initializeApp() (*config.Config, *logrus.Logger, error) {
